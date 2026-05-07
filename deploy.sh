@@ -60,30 +60,6 @@ if $DO_BUILD || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     info "Image built: $IMAGE"
 fi
 
-# ─── SSL certificate init (first deploy only) ─────────────────────────────────
-if $DO_SSL_INIT; then
-    step "SSL certificate init (Let's Encrypt)"
-
-    # Temporarily serve HTTP without a redirect so certbot can reach /.well-known/
-    # Start only nginx (it can start without API being healthy for cert issuance)
-    info "Starting nginx for ACME challenge..."
-    $COMPOSE up -d nginx
-
-    sleep 5
-
-    info "Requesting certificate for ${DOMAIN}..."
-    $COMPOSE run --rm certbot certonly \
-        --webroot \
-        --webroot-path=/var/www/certbot \
-        --email "admin@${DOMAIN}" \
-        --agree-tos \
-        --no-eff-email \
-        -d "${DOMAIN}"
-
-    info "Certificate issued. Reloading nginx..."
-    $COMPOSE exec nginx nginx -s reload
-    info "SSL ready."
-fi
 
 # ─── Deploy all services ──────────────────────────────────────────────────────
 step "Starting services"
@@ -108,7 +84,7 @@ done
 step "Deployment complete"
 $COMPOSE ps
 echo ""
-info "Dashboard: https://${DOMAIN}"
+info "Dashboard: http://${DOMAIN}"
 info "API docs:  disabled (ENABLE_DOCS=false in production)"
 info "Logs:      docker compose -f docker-compose.prod.yml logs -f [service]"
 info "Status:    docker compose -f docker-compose.prod.yml ps"
