@@ -250,8 +250,8 @@ async def get_threads(request: Request, current_user: User = Depends(get_current
     # In a high-traffic production environment, these mappings should be mirrored 
     # in the relational database (PostgreSQL) for faster indexed lookups.
     async for checkpoint_tuple in checkpointer.alist(None):
-        # Each checkpoint_tuple has 'channel_values' which contains the ResearchState
-        state = checkpoint_tuple.checkpoint.get("channel_values", {})
+        checkpoint_data = getattr(checkpoint_tuple, "checkpoint", checkpoint_tuple)
+        state = checkpoint_data.get("channel_values", {}) if hasattr(checkpoint_data, "get") else {}
         if state.get("tenant_id") == current_user.tenant_id:
             cid = checkpoint_tuple.config.get("configurable", {}).get("thread_id")
             if cid and cid not in all_threads:
@@ -261,29 +261,47 @@ async def get_threads(request: Request, current_user: User = Depends(get_current
 @router.get("/chat/history/{thread_id}")
 async def get_chat_history(thread_id: str, request: Request, current_user: User = Depends(get_current_user)):
     """Fetches full message history for a specific thread, with tenant isolation."""
-    checkpointer = request.app.state.checkpointer
-    config = {"configurable": {"thread_id": thread_id}}
-    
-    checkpoint_tuple = await checkpointer.aget(config)
-    if not checkpoint_tuple:
-        return {"messages": []}
-        
-    # Security Check: Verify that this thread belongs to the current user's organisation
-    state = checkpoint_tuple.checkpoint.get("channel_values", {})
-    if state.get("tenant_id") != current_user.tenant_id:
-        raise HTTPException(status_code=403, detail="Access denied: This thread belongs to another tenant.")
+    try:
+        checkpointer = request.app.state.checkpointer
+        config = {"configurable": {"thread_id": thread_id}}
 
-    raw_messages = state.get("messages", [])
-    
-    formatted = []
-    for m in raw_messages:
-        if isinstance(m, HumanMessage):
-            formatted.append({"role": "user", "content": m.content})
-        elif isinstance(m, AIMessage):
-            if m.content:
-                formatted.append({"role": "assistant", "content": m.content})
-                
-    return {"messages": formatted}
+        # aget_tuple returns a CheckpointTuple (config, checkpoint, metadata, parent_config).
+        # aget (older API) returns just the Checkpoint dict — .checkpoint attribute doesn't exist on a dict.
+        get_tuple = getattr(checkpointer, "aget_tuple", None) or checkpointer.aget
+        checkpoint_tuple = await get_tuple(config)
+        if not checkpoint_tuple:
+            return {"messages": []}
+
+        # checkpoint_tuple.checkpoint is the Checkpoint TypedDict with channel_values.
+        checkpoint_data = getattr(checkpoint_tuple, "checkpoint", checkpoint_tuple)
+        state = checkpoint_data.get("channel_values", {}) if hasattr(checkpoint_data, "get") else {}
+
+        if state.get("tenant_id") != current_user.tenant_id:
+            raise HTTPException(status_code=403, detail="Access denied: This thread belongs to another tenant.")
+
+        raw_messages = state.get("messages", [])
+
+        formatted = []
+        for m in raw_messages:
+            if isinstance(m, HumanMessage):
+                formatted.append({"role": "user", "content": m.content})
+            elif isinstance(m, AIMessage):
+                if m.content:
+                    formatted.append({"role": "assistant", "content": m.content})
+            elif isinstance(m, dict):
+                role = m.get("type") or m.get("role", "")
+                content = m.get("content", "")
+                if role in ("human", "user") and content:
+                    formatted.append({"role": "user", "content": content})
+                elif role in ("ai", "assistant") and content:
+                    formatted.append({"role": "assistant", "content": content})
+
+        return {"messages": formatted}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CHAT HISTORY: thread={thread_id} error={e}")
+        return {"messages": [], "debug": str(e)}
 
 @router.get("/debug/stats")
 async def get_vault_stats(current_user: User = Depends(get_current_user)):

@@ -287,8 +287,11 @@ except Exception as e:
     log("List chat threads", False, str(e))
 
 if THREAD_ID:
+    print(f"          [DEBUG] THREAD_ID={THREAD_ID!r}")
     try:
         r = requests.get(f"{BASE}/chat/history/{THREAD_ID}", headers=HDR, timeout=10)
+        raw_body = r.text
+        print(f"          [DEBUG] history status={r.status_code} body={raw_body[:300]!r}")
         data = r.json()
         msgs = data.get("messages", [])
         ok = r.status_code == 200 and len(msgs) >= 1
@@ -296,7 +299,7 @@ if THREAD_ID:
         log("Chat history for thread", ok,
             f"thread={THREAD_ID[:16]}..., msgs={len(msgs)}, roles={roles}")
     except Exception as e:
-        log("Chat history for thread", False, str(e))
+        log("Chat history for thread", False, f"status={r.status_code if 'r' in dir() else '?'} body={r.text[:200]!r if 'r' in dir() else '?'} err={e}")
 else:
     log("Chat history for thread", False, "No thread_id captured")
 
