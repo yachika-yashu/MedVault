@@ -8,6 +8,7 @@ Usage:
 """
 from pathlib import Path
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 
 def generate(out: Path = Path("dummy_blood_report.pdf")) -> None:
@@ -16,9 +17,9 @@ def generate(out: Path = Path("dummy_blood_report.pdf")) -> None:
 
     # Header
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "COMPLETE BLOOD COUNT REPORT", ln=True, align="C")
+    pdf.cell(0, 10, "COMPLETE BLOOD COUNT REPORT", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.set_font("Helvetica", "I", 10)
-    pdf.cell(0, 6, "City General Hospital — Department of Haematology", ln=True, align="C")
+    pdf.cell(0, 6, "City General Hospital - Department of Haematology", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(4)
 
     # Patient info
@@ -30,25 +31,25 @@ def generate(out: Path = Path("dummy_blood_report.pdf")) -> None:
         ("Ordering Physician", "Dr. Sarah Ahmed, MD"),
     ]:
         pdf.cell(60, 7, f"{label}:", border=0)
-        pdf.cell(0, 7, val, ln=True)
+        pdf.cell(0, 7, val, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(4)
 
     # Results table
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Test Results", ln=True)
+    pdf.cell(0, 8, "Test Results", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(2)
 
     headers = ["Test", "Result", "Reference Range", "Status"]
     col_w = [65, 40, 55, 30]
     rows = [
-        ("Haemoglobin",  "13.5 g/dL",    "12.0-17.5 g/dL",    "Normal"),
-        ("WBC Count",    "7500 /uL",      "4500-11000 /uL",     "Normal"),
-        ("Platelet Count","250000 /uL",   "150000-400000 /uL",  "Normal"),
-        ("Vitamin B12",  "180 pg/mL",     "200-900 pg/mL",      "LOW"),
-        ("Ferritin",     "8 ng/mL",       "12-300 ng/mL",       "LOW"),
-        ("MCV",          "72 fL",         "80-100 fL",          "LOW"),
-        ("MCH",          "24 pg",         "27-33 pg",           "LOW"),
-        ("Serum Iron",   "40 ug/dL",      "60-170 ug/dL",       "LOW"),
+        ("Haemoglobin",   "13.5 g/dL",  "12.0-17.5 g/dL",   "Normal"),
+        ("WBC Count",     "7500 /uL",   "4500-11000 /uL",    "Normal"),
+        ("Platelet Count","250000 /uL", "150000-400000 /uL", "Normal"),
+        ("Vitamin B12",   "180 pg/mL",  "200-900 pg/mL",     "LOW"),
+        ("Ferritin",      "8 ng/mL",    "12-300 ng/mL",      "LOW"),
+        ("MCV",           "72 fL",      "80-100 fL",         "LOW"),
+        ("MCH",           "24 pg",      "27-33 pg",          "LOW"),
+        ("Serum Iron",    "40 ug/dL",   "60-170 ug/dL",      "LOW"),
     ]
 
     pdf.set_font("Helvetica", "B", 10)
@@ -73,7 +74,7 @@ def generate(out: Path = Path("dummy_blood_report.pdf")) -> None:
     # Clinical notes
     pdf.ln(6)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Clinical Assessment", ln=True)
+    pdf.cell(0, 7, "Clinical Assessment", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", size=10)
     pdf.multi_cell(0, 6,
         "Iron deficiency anaemia with concurrent Vitamin B12 deficiency is noted. "
@@ -85,8 +86,8 @@ def generate(out: Path = Path("dummy_blood_report.pdf")) -> None:
 
     pdf.ln(4)
     pdf.set_font("Helvetica", "I", 9)
-    pdf.cell(0, 6, "Report verified by: Dr. Sarah Ahmed, MD (Haematology)", ln=True)
-    pdf.cell(0, 6, "This report is generated for testing purposes only.", ln=True)
+    pdf.cell(0, 6, "Report verified by: Dr. Sarah Ahmed, MD (Haematology)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 6, "This report is generated for testing purposes only.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     pdf.output(str(out))
     print(f"Generated: {out}  ({out.stat().st_size:,} bytes)")
