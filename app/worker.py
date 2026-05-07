@@ -11,10 +11,13 @@ async def shutdown(ctx):
     """Cleanup resources."""
     print("Worker shutting down...")
 
+async def noop(ctx):
+    """Placeholder — replace with real background tasks as needed."""
+    pass
+
 class WorkerSettings:
     """Configuration for the arq worker."""
-    functions = [] # Add background functions here
+    functions = [noop]
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", REDIS_URL))
     on_startup = startup
     on_shutdown = shutdown
-    # Optionally add more settings like job_timeout, keep_result, etc.

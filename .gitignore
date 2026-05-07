@@ -18,6 +18,7 @@ logs/
 
 # Runtime-generated images from PDF extraction — not source files
 assets/images/
+!assets/images/.gitkeep
 
 .claude/
 .vscode/
