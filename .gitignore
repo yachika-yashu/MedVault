@@ -1,0 +1,44 @@
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+research.db
+checkpoints.db
+qdrant_storage/
+logs/
+
+# Runtime-generated images from PDF extraction — not source files
+assets/images/
+
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+test.pdf
+dummy_blood_report.pdf
+scratch/
+.ipynb_checkpoints/
+
+# IDE
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+me.md
+code_understanding.md
+docs/
+evaluate

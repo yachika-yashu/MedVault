@@ -1,0 +1,168 @@
+# ─────────────────────────────────────────────────────────────────────────────
+name: medvault
+
+# MedVault — PRODUCTION Docker Compose
+#
+# Key differences vs docker-compose.yml (dev):
+#   - No --reload flag (gunicorn manages multiple workers instead)
+#   - No source-code bind mounts (image is immutable in prod)
+#   - Internal services (Qdrant, Redis, Postgres) have no host ports
+#   - nginx handles all ingress: SSL termination, rate limiting, WebSocket proxy
+#   - restart: unless-stopped on every service
+#   - APP_ENV=production enforces stricter security checks in config.py
+#   - assets_data named volume: extracted PDF images persist across restarts
+#
+# FIRST DEPLOY: run deploy.sh --build --ssl-init
+# UPDATES:      run deploy.sh --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    # No ports — only reachable by other containers in this network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/localhost/6333"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    image: medvault:latest
+    restart: unless-stopped
+    # No ports — nginx proxies /api/ → api:8000
+    command: gunicorn -c gunicorn_conf.py main:app
+    volumes:
+      - assets_data:/app/assets/images
+      - checkpoints_data:/app/data
+    env_file:
+      - .env.production
+    environment:
+      - APP_ENV=production
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - TRUSTED_HOSTS=localhost,127.0.0.1,api,nginx,${DOMAIN}
+      - ALLOWED_ORIGINS=https://${DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    image: medvault:latest
+    restart: unless-stopped
+    command: arq app.worker.WorkerSettings
+    volumes:
+      - checkpoints_data:/app/data
+    env_file:
+      - .env.production
+    environment:
+      - APP_ENV=production
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "arq"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  dashboard:
+    image: medvault:latest
+    restart: unless-stopped
+    # No ports — nginx proxies / → dashboard:8501
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+    volumes:
+      - assets_data:/app/assets/images
+    environment:
+      # Internal Docker network — dashboard calls API server-side, not from browser
+      - API_BASE_URL=http://api:8000/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/proxy_params.conf:/etc/nginx/proxy_params.conf:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
+    environment:
+      - DOMAIN=${DOMAIN}
+      # Only substitute ${DOMAIN} — leave nginx's own $variables untouched
+      - NGINX_ENVSUBST_TEMPLATE_VARS=$$DOMAIN
+    depends_on:
+      - api
+      - dashboard
+
+  # Run once manually for initial cert issuance; then via monthly cron for renewal.
+  # See deploy.sh for the full first-run sequence.
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  redis_data:
+  assets_data:
+  checkpoints_data:
+  certbot_www:
+  certbot_certs:

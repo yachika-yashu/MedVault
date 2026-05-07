@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build, Smoke & Full Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Buildx caches Docker layers between runs.
+      # First run: ~5 min. Subsequent runs (code-only changes): ~45 sec.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: medvault:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create CI environment file
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          cat > .env << EOF
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          JWT_SECRET_KEY=ci-jwt-secret-not-used-in-production-64-chars-long-padding
+          POSTGRES_DB=medvault
+          POSTGRES_USER=medvault
+          POSTGRES_PASSWORD=ci-postgres-password
+          DATABASE_URL=postgresql://medvault:ci-postgres-password@postgres:5432/medvault
+          REDIS_URL=redis://redis:6379/0
+          QDRANT_URL=http://qdrant:6333
+          CHECKPOINTS_DB_URL=checkpoints.db
+          APP_ENV=development
+          ENABLE_DOCS=true
+          ALLOWED_ORIGINS=http://localhost:8501,http://localhost:8000
+          TRUSTED_HOSTS=localhost,127.0.0.1
+          LANGCHAIN_TRACING_V2=false
+          EOF
+
+      - name: Start services
+        run: docker compose up -d --no-build
+
+      - name: Wait for API to become healthy
+        run: |
+          echo "Waiting for API..."
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:8000/api/v1/health > /dev/null; then
+              echo "API healthy after $((i * 5))s"
+              exit 0
+            fi
+            [ $i -eq 40 ] && { echo "API never became healthy"; docker compose logs api; exit 1; }
+            sleep 5
+          done
+
+      - name: Generate dummy PDF for tests
+        run: |
+          pip install --quiet fpdf2
+          python generate_dummy_report.py
+
+      - name: Run full test suite
+        run: python test_all_features.py
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail=150
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
