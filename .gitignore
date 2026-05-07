@@ -17,7 +17,7 @@ qdrant_storage/
 logs/
 
 # Runtime-generated images from PDF extraction — not source files
-assets/images/
+assets/images/*
 !assets/images/.gitkeep
 
 .claude/

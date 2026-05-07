@@ -55,6 +55,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Create bind-mount directories
+        run: mkdir -p assets/images
+
       - name: Start services
         run: docker compose up -d --no-build
 
