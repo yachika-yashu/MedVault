@@ -1,6 +1,4 @@
 # ─────────────────────────────────────────────────────────────────────────────
-name: medvault
-
 # MedVault — PRODUCTION Docker Compose
 #
 # Key differences vs docker-compose.yml (dev):
@@ -15,6 +13,8 @@ name: medvault
 # FIRST DEPLOY: run deploy.sh --build --ssl-init
 # UPDATES:      run deploy.sh --build
 # ─────────────────────────────────────────────────────────────────────────────
+
+name: medvault
 
 services:
   postgres:
@@ -31,6 +31,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - medvault_network
 
   qdrant:
     image: qdrant/qdrant:v1.12.0
@@ -39,10 +41,13 @@ services:
       - qdrant_data:/qdrant/storage
     # No ports — only reachable by other containers in this network
     healthcheck:
-      test: ["CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/localhost/6333"]
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:6333/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 90s
+    networks:
+      - medvault_network
 
   redis:
     image: redis:7-alpine
@@ -54,12 +59,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - medvault_network
 
   api:
     image: medvault:latest
     restart: unless-stopped
     # No ports — nginx proxies /api/ → api:8000
-    command: gunicorn -c gunicorn_conf.py main:app
+    command: >
+      gunicorn -c gunicorn_conf.py main:app
+      --bind 0.0.0.0:8000
+      --workers 4
+      --worker-class uvicorn.workers.UvicornWorker
     volumes:
       - assets_data:/app/assets/images
       - checkpoints_data:/app/data
@@ -85,6 +96,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - medvault_network
+    expose:
+      - "8000"
 
   worker:
     image: medvault:latest
@@ -106,17 +121,18 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "ps", "aux", "|", "grep", "arq"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+    networks:
+      - medvault_network
 
   dashboard:
     image: medvault:latest
     restart: unless-stopped
     # No ports — nginx proxies / → dashboard:8501
-    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+    command: >
+      streamlit run dashboard.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.headless=true
     volumes:
       - assets_data:/app/assets/images
     environment:
@@ -126,16 +142,25 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8501/_stcore/health
       interval: 15s
       timeout: 5s
       retries: 3
+    networks:
+      - medvault_network
+    expose:
+      - "8501"
 
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./nginx/proxy_params.conf:/etc/nginx/proxy_params.conf:ro
@@ -143,19 +168,30 @@ services:
       - certbot_certs:/etc/letsencrypt:ro
     environment:
       - DOMAIN=${DOMAIN}
-      # Only substitute ${DOMAIN} — leave nginx's own $variables untouched
       - NGINX_ENVSUBST_TEMPLATE_VARS=$$DOMAIN
     depends_on:
-      - api
-      - dashboard
+      api:
+        condition: service_healthy
+      dashboard:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - medvault_network
 
   # Run once manually for initial cert issuance; then via monthly cron for renewal.
   # See deploy.sh for the full first-run sequence.
   certbot:
     image: certbot/certbot:latest
+    restart: unless-stopped
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_certs:/etc/letsencrypt
+    networks:
+      - medvault_network
 
 volumes:
   postgres_data:
@@ -165,3 +201,7 @@ volumes:
   checkpoints_data:
   certbot_www:
   certbot_certs:
+
+networks:
+  medvault_network:
+    driver: bridge
