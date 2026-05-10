@@ -5,6 +5,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_RAG-blueviolet)
+[![CI](https://github.com/yachika-yashu/MedVault/actions/workflows/ci.yml/badge.svg)](https://github.com/yachika-yashu/MedVault/actions)
 
 **MedVault** is an enterprise-grade research platform that enables healthcare teams to securely ingest medical literature, clinical guidelines, and pathology reports — transforming static documents into a dynamic, cited knowledge base for real-time, evidence-based decision support.
 
@@ -90,9 +91,9 @@ See how any two documents in your vault differ side-by-side.
 
 ### Full Feature Demo
 
-[![MedVault Demo](references/mdvault.png)](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)
+[![MedVault Demo](https://img.youtube.com/vi/sCsUNH4PkK8/maxresdefault.jpg)](https://youtu.be/sCsUNH4PkK8)
 
-**[Watch the full demo](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)** — Click the image or link to open in Google Drive.
+**[Watch the full demo on YouTube](https://youtu.be/sCsUNH4PkK8)** — Click the thumbnail or link to open.
 
 ---
 
@@ -149,6 +150,16 @@ Designed for clinical environments where data integrity and privacy are non-nego
 ---
 
 ## Quick Start (Docker)
+
+**First time? Three commands:**
+```bash
+git clone https://github.com/yachika-yashu/MedVault.git && cd MedVault
+cp .env.example .env  # then add your OPENAI_API_KEY
+docker compose up -d --build
+```
+Open http://localhost:8501, register, upload `dummy_blood_report.pdf`, and ask *"What are the key findings in this report?"* — cited answer in ~3 seconds.
+
+---
 
 **Prerequisites:** Docker Desktop, an OpenAI API key.
 
