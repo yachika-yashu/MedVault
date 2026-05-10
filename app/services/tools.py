@@ -17,7 +17,8 @@ def arxiv_search_tool(query: str) -> str:
     Use this to find papers by title, author, or topic when the local vault doesn't have the answer.
     Returns paper summaries, titles, and IDs.
     """
-    return arxiv_wrapper.run(query)
+    results = arxiv_wrapper.run(query)
+    return f"--- ARXIV SEARCH RESULTS (external web source, NOT from the user's vault) ---\n{results}\n--- END ARXIV RESULTS ---"
 
 
 @tool
@@ -67,20 +68,30 @@ async def rag_tool(
     if not results:
         return f"No relevant information found in the vault for '{filename or 'all documents'}'."
 
+    # Assign one SOURCE number per unique file so the LLM doesn't repeat the same
+    # paper under multiple citation numbers in the References section.
+    file_to_source_num: dict = {}
+    next_source_num = 0
+
     formatted_context = f"--- LOCAL VAULT CONTEXT ({filename or 'Global'}) ---\n"
-    for i, hit in enumerate(results):
+    for hit in results:
         text = hit["text"]
         media = hit.get("media_url")
         if media:
             text += f"\n[IMAGE_REFERENCE: {BASE_URL}{media}]"
 
-        # Build a compact citation header for this chunk so the LLM can cite it
         src_title = hit.get("title") or hit.get("filename", "Unknown")
         src_authors = hit.get("authors")
         src_year = hit.get("year", "")
         src_file = hit.get("filename", "")
         authors_str = (", ".join(src_authors) if isinstance(src_authors, list) and src_authors else "")
-        citation_line = f"[SOURCE {i}] {src_title}"
+
+        if src_file not in file_to_source_num:
+            file_to_source_num[src_file] = next_source_num
+            next_source_num += 1
+        src_num = file_to_source_num[src_file]
+
+        citation_line = f"[SOURCE {src_num}] {src_title}"
         if authors_str:
             citation_line += f" | Authors: {authors_str}"
         if src_year:

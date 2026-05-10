@@ -614,15 +614,25 @@ async def research_and_answer(
             yield f"data: {json.dumps({'type': 'error', 'message': 'Papers indexed but no relevant content found. Try rephrasing.'})}\n\n"
             return
 
-        # Build cited context
+        # Build cited context — one SOURCE number per unique paper so references don't repeat
+        papers_map = {}
+        for chunk in all_chunks[:12]:
+            fname = chunk.get("filename", "Unknown")
+            if fname not in papers_map:
+                papers_map[fname] = {
+                    "title": chunk.get("title") or fname,
+                    "authors": chunk.get("authors", []),
+                    "year": chunk.get("year", ""),
+                    "texts": []
+                }
+            papers_map[fname]["texts"].append(chunk["text"])
+
         context_parts = []
-        for i, chunk in enumerate(all_chunks[:10]):
-            src_title = chunk.get("title") or chunk.get("filename", "Unknown")
-            src_authors = chunk.get("authors", [])
-            authors_str = ", ".join(src_authors[:2]) if isinstance(src_authors, list) and src_authors else "et al."
-            src_year = chunk.get("year", "")
+        for i, (fname, paper) in enumerate(papers_map.items()):
+            authors_str = ", ".join(paper["authors"][:2]) if isinstance(paper["authors"], list) and paper["authors"] else "et al."
+            combined_text = "\n\n".join(paper["texts"])
             context_parts.append(
-                f"[SOURCE {i+1}] {src_title} | {authors_str} ({src_year}) | File: {chunk.get('filename','')}\n{chunk['text']}"
+                f"[SOURCE {i+1}] {paper['title']} | {authors_str} ({paper['year']}) | File: {fname}\n{combined_text}"
             )
         context = "\n\n".join(context_parts)
 
@@ -674,9 +684,12 @@ async def compare_documents(
     if not file_a or not file_b:
         raise HTTPException(status_code=400, detail="file_a and file_b are required.")
 
-    chunks_a = await search_vdb(question, current_user.tenant_id, limit=5,
+    # Use a content-focused retrieval query so abstract questions like
+    # "what improved/worsened" still fetch all the relevant lab values.
+    retrieval_query = "lab test results blood work values measurements findings diagnosis"
+    chunks_a = await search_vdb(retrieval_query, current_user.tenant_id, limit=8,
                                 filters=QueryFilters(filename=file_a))
-    chunks_b = await search_vdb(question, current_user.tenant_id, limit=5,
+    chunks_b = await search_vdb(retrieval_query, current_user.tenant_id, limit=8,
                                 filters=QueryFilters(filename=file_b))
 
     if not chunks_a:
@@ -684,8 +697,8 @@ async def compare_documents(
     if not chunks_b:
         raise HTTPException(status_code=404, detail=f"No content found for '{file_b}'.")
 
-    ctx_a = "\n".join([c["text"] for c in chunks_a[:4]])
-    ctx_b = "\n".join([c["text"] for c in chunks_b[:4]])
+    ctx_a = "\n".join([c["text"] for c in chunks_a[:6]])
+    ctx_b = "\n".join([c["text"] for c in chunks_b[:6]])
 
     resp = await openai_client.chat.completions.create(
         model=GENERATION_MODEL,
@@ -694,8 +707,12 @@ async def compare_documents(
                 "role": "system",
                 "content": (
                     "You are a clinical document comparison specialist. "
-                    "Compare the two documents clearly, using a structured format with "
-                    "headings: Similarities, Differences, and Clinical Recommendation."
+                    "Answer the user's specific question by comparing the two documents. "
+                    "Choose headings that match what was asked — for example:\n"
+                    "- 'What Improved', 'What Worsened', 'New Concerns', 'Clinical Recommendation' "
+                    "when asked about trends or changes\n"
+                    "- 'Similarities', 'Differences', 'Clinical Recommendation' for a general comparison\n"
+                    "Always end with clinical recommendations. Remind the user that final decisions rest with the treating clinician."
                 )
             },
             {

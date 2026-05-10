@@ -83,7 +83,9 @@ async def call_model(state: ResearchState):
             "At the end of EVERY response that uses vault sources, add a '---\\n**References**' section listing:\n"
             "  [N] Title — Authors (Year) — File: filename\n"
             "If a source has no authors, write 'Clinical Document'. "
-            "If you use Arxiv results, cite the paper title and arxiv ID. "
+            "If you use Arxiv search results, cite them inline as [Arxiv: Paper Title] — NEVER as [N] numbers. "
+            "List Arxiv papers in a SEPARATE '**External Sources (Arxiv)**' section, never inside the vault References section. "
+            "Arxiv results are external web search results and must NEVER be attributed to the user's uploaded documents or reports. "
             "NEVER fabricate citations. Only cite sources that appeared in the tool output."
         ))
         messages = [system_msg] + messages

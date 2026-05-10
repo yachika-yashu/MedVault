@@ -136,7 +136,7 @@ input, textarea, select {
 [data-baseweb="input"],
 [data-baseweb="base-input"] {
     background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
+    /*border: 1px solid #e2e8f0 !important;*/
     border-radius: 10px !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
     transition: border-color 0.2s, box-shadow 0.2s !important;
@@ -302,7 +302,7 @@ div:has([data-testid="stChatInputContainer"]) {
 }
 [data-testid="stBottom"] {
     border-top: 1px solid #e2e8f0 !important;
-    padding: 0.75rem 1rem !important;
+    padding: 1rem 1.5rem 1.25rem !important;
 }
 
 /* ── Chat messages ── */
@@ -322,21 +322,28 @@ div[class*="stChatMessage"] > div:nth-child(2) {
     border-radius: 12px !important;
 }
 [data-testid="chatAvatarIcon-user"] {
-    background: linear-gradient(135deg,#2563eb,#4f46e5) !important; border:none !important;
+    background: linear-gradient(135deg,#0891b2,#2563eb) !important;
+    border: none !important;
+    font-size: 1.1rem !important;
 }
 [data-testid="chatAvatarIcon-assistant"] {
-    background: #ffffff !important; border: 1px solid #e2e8f0 !important;
+    background: linear-gradient(135deg,#7c3aed,#a855f7) !important;
+    border: none !important;
+    font-size: 1.1rem !important;
 }
 
 /* ── Chat input box ── */
 [data-testid="stChatInputContainer"] {
-    background: #ffffff !important; border: 1.5px solid #e2e8f0 !important;
-    border-radius: 14px !important; padding: 0.25rem 0.5rem !important;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important;
+    background: #ffffff !important;
+    border: 1.5px solid #bfdbfe !important;
+    border-radius: 20px !important;
+    padding: 0.45rem 0.6rem 0.45rem 1rem !important;
+    box-shadow: 0 4px 24px rgba(37,99,235,0.10), 0 1px 4px rgba(0,0,0,0.06) !important;
+    transition: box-shadow 0.2s, border-color 0.2s !important;
 }
 [data-testid="stChatInputContainer"]:focus-within {
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.12), 0 2px 12px rgba(0,0,0,0.08) !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.14), 0 4px 24px rgba(37,99,235,0.12) !important;
 }
 /* Every element inside the chat box → white, regardless of nesting depth */
 [data-testid="stChatInputContainer"] *:not(button):not(svg):not(path) {
@@ -349,13 +356,35 @@ div[class*="stChatMessage"] > div:nth-child(2) {
     color: #0f172a !important;
     caret-color: #2563eb !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.9rem !important;
+    font-size: 0.92rem !important;
     border: none !important;
     box-shadow: none !important;
     outline: none !important;
+    padding: 0.35rem 0 !important;
 }
 [data-testid="stChatInputContainer"] textarea::placeholder {
-    color: #94a3b8 !important;
+    color: #93c5fd !important;
+    font-style: italic !important;
+}
+/* Submit button */
+[data-testid="stChatInputSubmitButton"] > button {
+    background: linear-gradient(135deg,#2563eb,#7c3aed) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+    width: 38px !important;
+    height: 38px !important;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.35) !important;
+    transition: opacity 0.15s, transform 0.15s !important;
+}
+[data-testid="stChatInputSubmitButton"] > button:hover {
+    opacity: 0.88 !important;
+    transform: scale(1.06) !important;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.45) !important;
+}
+[data-testid="stChatInputSubmitButton"] > button svg {
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
 }
 
 /* ── Tool badge ── */
@@ -439,19 +468,67 @@ else:
 _JS = """
 <script>
 (function() {
-    function fixChatBar() {
+    // Inject placeholder + focus styles that JS can't set directly
+    const _s = document.createElement('style');
+    _s.textContent = `
+        [data-testid="stChatInputContainer"] textarea::placeholder {
+            color: #93c5fd !important; font-style: italic !important;
+        }
+        [data-testid="stChatInputContainer"]:focus-within {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.14),
+                        0 4px 24px rgba(37,99,235,0.14) !important;
+        }
+    `;
+    document.head.appendChild(_s);
+
+    function styleChat() {
+        // ── Bottom bar background ──────────────────────────────
         const bottom = document.querySelector('[data-testid="stBottom"]');
-        if (!bottom) return;
-        [bottom, ...bottom.querySelectorAll('*')].forEach(el => {
-            const tid = el.getAttribute('data-testid');
-            if (tid === 'stChatInputContainer' || el.closest('[data-testid="stChatInputContainer"]')) return;
-            el.style.setProperty('background', '#f1f5f9', 'important');
-            el.style.setProperty('background-color', '#f1f5f9', 'important');
-        });
+        if (bottom) {
+            [bottom, ...bottom.querySelectorAll('*')].forEach(el => {
+                const tid = el.getAttribute('data-testid');
+                if (tid === 'stChatInputContainer' || el.closest('[data-testid="stChatInputContainer"]')) return;
+                el.style.setProperty('background', '#f1f5f9', 'important');
+                el.style.setProperty('background-color', '#f1f5f9', 'important');
+            });
+        }
+
+        // ── Chat input container ───────────────────────────────
+        const box = document.querySelector('[data-testid="stChatInputContainer"]');
+        if (box && !box._styled) {
+            box.style.setProperty('background', '#ffffff', 'important');
+            box.style.setProperty('border', '1.5px solid #bfdbfe', 'important');
+            box.style.setProperty('border-radius', '20px', 'important');
+            box.style.setProperty('padding', '0.35rem 0.5rem 0.35rem 0.85rem', 'important');
+            box.style.setProperty('box-shadow', '0 4px 24px rgba(37,99,235,0.10), 0 1px 4px rgba(0,0,0,0.06)', 'important');
+            box.style.setProperty('transition', 'box-shadow 0.2s, border-color 0.2s', 'important');
+            box._styled = true;
+        }
+
+        // ── Submit button ──────────────────────────────────────
+        const btnWrap = document.querySelector('[data-testid="stChatInputSubmitButton"]');
+        const btn = btnWrap
+            ? (btnWrap.tagName === 'BUTTON' ? btnWrap : btnWrap.querySelector('button'))
+            : document.querySelector('[data-testid="stChatInputContainer"] button');
+        if (btn && !btn._styled) {
+            btn.style.setProperty('background', 'linear-gradient(135deg,#2563eb,#7c3aed)', 'important');
+            btn.style.setProperty('border', 'none', 'important');
+            btn.style.setProperty('border-radius', '12px', 'important');
+            btn.style.setProperty('box-shadow', '0 2px 8px rgba(37,99,235,0.40)', 'important');
+            btn.style.setProperty('width', '38px', 'important');
+            btn.style.setProperty('height', '38px', 'important');
+            btn.querySelectorAll('svg, path').forEach(el => {
+                el.style.setProperty('fill', '#ffffff', 'important');
+                el.style.setProperty('stroke', '#ffffff', 'important');
+            });
+            btn._styled = true;
+        }
     }
-    const obs = new MutationObserver(fixChatBar);
+
+    const obs = new MutationObserver(styleChat);
     obs.observe(document.documentElement, { childList: true, subtree: true });
-    fixChatBar();
+    styleChat();
 })();
 </script>
 """
@@ -600,20 +677,52 @@ async def search_protocol(procedure: str):
         return r.json()
     return None
 
+# Each tuple: (label, progress_value_at_which_this_stage_is_complete)
+_PIPELINE_STAGES = [("Extract", 10), ("Clean", 35), ("Chunk", 45), ("Embed", 80), ("Index", 100)]
+
+def _render_pipeline(placeholder, value: int):
+    html = '<div style="display:flex;align-items:center;padding:0.75rem 0 0.25rem;">'
+    for i, (label, threshold) in enumerate(_PIPELINE_STAGES):
+        if value >= threshold:
+            bg, bc, fc, dt = "#16a34a", "#16a34a", "white", "✓"
+            lc, fw = "#16a34a", "700"
+            line_bg = "#16a34a"
+        elif i == 0 or value >= _PIPELINE_STAGES[i - 1][1]:
+            bg, bc, fc, dt = "#2563eb", "#2563eb", "white", str(i + 1)
+            lc, fw = "#2563eb", "700"
+            line_bg = "linear-gradient(90deg,#2563eb,#e2e8f0)"
+        else:
+            bg, bc, fc, dt = "#f1f5f9", "#cbd5e1", "#94a3b8", str(i + 1)
+            lc, fw = "#94a3b8", "500"
+            line_bg = "#e2e8f0"
+        html += (
+            f'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">'
+            f'<div style="width:28px;height:28px;border-radius:50%;background:{bg};border:2px solid {bc};'
+            f'color:{fc};display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;">{dt}</div>'
+            f'<div style="font-size:0.68rem;color:{lc};font-weight:{fw};white-space:nowrap;">{label}</div>'
+            f'</div>'
+        )
+        if i < len(_PIPELINE_STAGES) - 1:
+            html += f'<div style="flex:1;height:2px;background:{line_bg};margin-bottom:22px;min-width:16px;"></div>'
+    html += '</div>'
+    placeholder.markdown(html, unsafe_allow_html=True)
+
 async def ingest_file(file):
     try:
         async with httpx.AsyncClient(timeout=120) as c:
             files = {"file": (file.name, file.getvalue(), "application/pdf")}
-            bar = st.progress(0, text="Starting ingestion...")
+            pipeline_box = st.empty()
+            _render_pipeline(pipeline_box, 0)
             async with aconnect_sse(c, "POST", f"{API_BASE_URL}/ingest", files=files, headers=headers()) as es:
                 async for ev in es.aiter_sse():
                     d = json.loads(ev.data)
                     if d.get("type") == "progress":
-                        bar.progress(d["value"] / 100, text=d["message"])
+                        _render_pipeline(pipeline_box, d["value"])
                     elif d.get("type") == "completed":
-                        bar.empty()
+                        pipeline_box.empty()
                         return d["result"]
                     elif d.get("type") == "error":
+                        pipeline_box.empty()
                         st.error(d["message"])
                         return None
     except Exception as e:
@@ -757,14 +866,18 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-label">Quick Ingest</div>', unsafe_allow_html=True)
     uploaded = st.file_uploader("upload", type=["pdf"], label_visibility="collapsed",
-                                 help="PDF, guidelines, lab reports, patents")
+                                 help="PDF, guidelines, lab reports, patents",
+                                 accept_multiple_files=True)
     if uploaded:
-        if st.button("⬆ Index Document", use_container_width=True, type="primary"):
-            res = run(ingest_file(uploaded))
-            if res:
-                title = res.get("metadata", {}).get("title") or uploaded.name
-                st.success(f"✓ {title[:35]}")
-                st.rerun()
+        n = len(uploaded)
+        btn_label = f"⬆ Index {n} Document{'s' if n > 1 else ''}"
+        if st.button(btn_label, use_container_width=True, type="primary"):
+            for f in uploaded:
+                res = run(ingest_file(f))
+                if res:
+                    title = res.get("metadata", {}).get("title") or f.name
+                    st.success(f"✓ {title[:35]}")
+            st.rerun()
 
     st.divider()
 
@@ -849,8 +962,9 @@ if st.session_state.active_page == "chat":
         st.session_state.messages.append({"role": "user", "content": prefill})
         st.rerun()
 
+    _AVATAR = {"user": "🧑‍⚕️", "assistant": "🧬"}
     for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
+        with st.chat_message(msg["role"], avatar=_AVATAR.get(msg["role"])):
             st.markdown(msg["content"])
             if "metrics" in msg and msg["metrics"]:
                 m = msg["metrics"]
@@ -864,10 +978,10 @@ if st.session_state.active_page == "chat":
 
     if prompt := st.chat_input("Ask a clinical question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar="🧑‍⚕️"):
             st.markdown(prompt)
 
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="🧬"):
             status_ph   = st.empty()
             response_ph = st.empty()
             metrics_ph  = st.empty()
@@ -970,7 +1084,8 @@ elif st.session_state.active_page == "vault":
                         with st.spinner("Generating summary..."):
                             summary = run(get_summary(fname))
                         if summary:
-                            st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
+                            with st.container(border=True):
+                                st.markdown(summary)
                         else:
                             st.error("Could not generate summary.")
                 with c2:
@@ -1104,7 +1219,8 @@ elif st.session_state.active_page == "guideline":
                     for s in result.get("sources", [])
                 )
                 st.markdown(f'<div style="margin-bottom:0.75rem">{sources_html}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="summary-box">{result["result"]}</div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown(result["result"])
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Continue discussion in Chat →", type="primary"):
                     st.session_state.active_page = "chat"
@@ -1187,7 +1303,8 @@ elif st.session_state.active_page == "literature":
                 if nf:
                     st.markdown(f'<div class="doc-meta" style="color:#f87171">⚠ Not found: {", ".join(nf)}</div>', unsafe_allow_html=True)
 
-            st.markdown(f'<div class="summary-box">{r["review"]}</div>', unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(r["review"])
             st.markdown("<br>", unsafe_allow_html=True)
             col1, col2 = st.columns(2)
             with col1:
@@ -1246,7 +1363,8 @@ elif st.session_state.active_page == "protocol":
                     for s in result.get("sources", [])
                 )
                 st.markdown(f'<div style="margin-bottom:0.75rem">{sources_html}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="summary-box">{result["result"]}</div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown(result["result"])
                 st.markdown("<br>", unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 with col1:
@@ -1319,7 +1437,8 @@ elif st.session_state.active_page == "compare":
                         st.markdown(f'<div class="compare-header">📄 {file_a}</div>', unsafe_allow_html=True)
                     with col2:
                         st.markdown(f'<div class="compare-header">📄 {file_b}</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="summary-box">{result}</div>', unsafe_allow_html=True)
+                    with st.container(border=True):
+                        st.markdown(result)
                     if st.button("Continue this comparison in Chat →", type="primary"):
                         st.session_state.active_page = "chat"
                         st.session_state.messages.append({"role": "user", "content": question})
@@ -1344,6 +1463,10 @@ elif st.session_state.active_page == "smart":
     </div>
     """, unsafe_allow_html=True)
 
+    # Apply prefill from a quick-example click before the widget renders
+    if "smart_topic_prefill" in st.session_state:
+        st.session_state["smart_topic"] = st.session_state.pop("smart_topic_prefill")
+
     topic = st.text_input(
         "Research question or topic",
         placeholder="e.g. how to treat rickets, causes of vitamin B12 deficiency, management of sepsis in children",
@@ -1364,7 +1487,7 @@ elif st.session_state.active_page == "smart":
     for i, ex in enumerate(examples):
         with cols[i]:
             if st.button(ex, key=f"smart_ex_{i}", use_container_width=True):
-                st.session_state["smart_topic"] = ex
+                st.session_state["smart_topic_prefill"] = ex
                 st.rerun()
 
     if st.button("🔬  Start Smart Research", type="primary", use_container_width=True, disabled=not topic):
