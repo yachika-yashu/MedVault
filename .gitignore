@@ -29,7 +29,6 @@ assets/images/*
 
 # Test artifacts
 test.pdf
-dummy_blood_report.pdf
 scratch/
 .ipynb_checkpoints/
 

@@ -1,5 +1,11 @@
 # MedVault
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_RAG-blueviolet)
+
 **MedVault** is an enterprise-grade research platform that enables healthcare teams to securely ingest medical literature, clinical guidelines, and pathology reports — transforming static documents into a dynamic, cited knowledge base for real-time, evidence-based decision support.
 
 Built with FastAPI, LangGraph, Qdrant, Redis, PostgreSQL, and Streamlit. Runs entirely in Docker.
@@ -23,7 +29,7 @@ Each team gets its own isolated vault and secure, private chat history. One depl
 
 ## Features
 
-### Research Chat
+### 1. Research Chat
 Ask clinical questions in natural language. The AI agent searches your vault, retrieves the most relevant chunks, and writes a cited answer.
 
 Every response includes inline citations like [1], [2] and a References section at the bottom:
@@ -32,7 +38,7 @@ Every response includes inline citations like [1], [2] and a References section 
 ```
 The agent can also search Arxiv for papers not in your vault. Conversations are automatically saved and persist across server restarts.
 
-### Smart Research
+### 2. Smart Research
 Type a clinical question (e.g. *"How to treat rickets in children?"*). The app:
 1. Searches PubMed Central for the top 3 relevant open-access papers
 2. Downloads and indexes them automatically
@@ -40,38 +46,38 @@ Type a clinical question (e.g. *"How to treat rickets in children?"*). The app:
 
 No manual upload needed.
 
-### Document Vault
+### 3. Document Vault
 - Upload PDFs from the sidebar (drag and drop)
 - View all indexed documents in a card grid
 - Click **Summary** to get a one-paragraph AI summary of any document
 - Click **Analyze** to open a chat session focused on that document
 - Delete documents you no longer need
 
-### Guideline Reference
+### 4. Guideline Reference
 Quickly find official medical recommendations (WHO, NICE, NHS, etc.) from your uploaded documents.
 - **What it shows**: The exact recommendation text and its **Grade of Evidence** (how strong the advice is).
 - **Benefit**: No more manual searching through 100-page PDF guidelines.
 - **Example**: *"What is the first-line treatment for pediatric hypertension according to WHO?"*
 
-### Literature Review
+### 5. Literature Review
 Summarize the current state of research for any clinical topic in your library.
 - **What it shows**: Where different papers **agree**, where they **disagree**, and what research is still missing.
 - **Benefit**: Get a high-level overview of your entire library in seconds.
 - **Example**: *"Summarize the consensus on using Vitamin D for rickets across my library."*
 
-### Protocol Reference
+### 6. Protocol Reference
 Fast access to hospital protocols and procedural guidelines.
 - **What it shows**: Clear **step-by-step instructions** with a direct link to the original source.
 - **Benefit**: Ensures you are following the latest institutional standards for any procedure.
 - **Example**: *"What is the step-by-step protocol for central line insertion?"*
 
-### Compare Documents
+### 7. Compare Documents
 See how any two documents in your vault differ side-by-side.
 - **What it shows**: Agreements, contradictions, and key clinical differences.
 - **Benefit**: Perfect for comparing a new lab report to a baseline or comparing two different studies.
 - **Example**: *"Compare the patient's CBC from Jan 2024 to their latest report from May 2024."*
 
-### Analytics
+### 8. Analytics
 - Total documents indexed
 - Total queries run
 - Tokens used and estimated cost
@@ -80,7 +86,57 @@ See how any two documents in your vault differ side-by-side.
 
 ---
 
-## 🔒 Governance & Security
+## Demo & Screenshots
+
+### Full Feature Demo
+
+[![MedVault Demo](references/mdvault.png)](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)
+
+**[Watch the full demo](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)** — Click the image or link to open in Google Drive.
+
+---
+
+## Architecture
+
+MedVault is built around a multi-stage agentic RAG pipeline with full multi-tenant isolation.
+
+```
+User Request
+    │
+    ▼
+[Nginx] ──► [Streamlit Dashboard]
+    │
+    ▼
+[FastAPI] ──► [Redis Cache] (exact-match hit → return immediately)
+    │
+    ▼
+[LangGraph Agent]
+    ├──► [Guardrail] (clinical topic check)
+    ├──► [Qdrant Hybrid Search] (dense + sparse vectors)
+    ├──► [Cross-Encoder Reranker] (ms-marco-MiniLM)
+    └──► [OpenAI GPT-4o-mini] (generation + citations)
+    │
+    ▼
+[Faithfulness Check] ──► [PostgreSQL TraceLog]
+    │
+    ▼
+[Redis + Qdrant Semantic Cache] (write result for future hits)
+    │
+    ▼
+Streamed SSE Response → Dashboard
+```
+
+**Ingestion pipeline:** PDF → Docling (layout-aware extraction) → chunking (~1500 tokens with overlap) → dense + sparse embeddings → Qdrant (tenant-tagged).
+
+**Multi-tenancy:** Every user belongs to a `team_code`. Every chunk stored in Qdrant is tagged with a hashed `tenant_id`. The agent query layer enforces tenant filtering at the database level — the LLM never sees data outside its tenant.
+
+**LangGraph state machine:** The agent is not a linear chain. It can loop — search the vault, decide it needs more context, reformulate the query with clinical synonyms, and search again — before generating the final answer.
+
+**Visual linking:** When Docling extracts a PDF it tags figures with stable IDs (`<!-- picture-0 -->`). When the agent retrieves a chunk containing an `[IMAGE_REFERENCE]` tag it can include the figure in its response, not just the surrounding text.
+
+---
+
+## Governance & Security
 
 Designed for clinical environments where data integrity and privacy are non-negotiable:
 
@@ -98,7 +154,7 @@ Designed for clinical environments where data integrity and privacy are non-nego
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-org/medvault.git
+git clone https://github.com/yachika-yashu/MedVault.git
 cd medvault
 
 # 2. Set up environment
@@ -132,6 +188,57 @@ That's it. Wait about 30 seconds for services to start, then open:
 
 ---
 
+## Production Deployment
+
+For a production server with SSL, Nginx, and Gunicorn:
+
+```bash
+# 1. Set up production environment
+cp .env.production.example .env.production
+# Fill in DOMAIN, OPENAI_API_KEY, JWT_SECRET_KEY, POSTGRES_PASSWORD
+
+# 2. First deploy (builds image, initialises SSL via Certbot)
+./deploy.sh --build --ssl-init
+
+# 3. Subsequent updates
+./deploy.sh --build
+```
+
+Key differences from dev:
+- Gunicorn manages multiple workers (no `--reload`)
+- Internal services (Qdrant, Redis, Postgres) have no exposed host ports
+- Nginx handles SSL termination, rate limiting, and WebSocket proxying
+- All services restart automatically unless manually stopped
+
+### Deploying to AWS
+
+**Option 1 — EC2 + Docker Compose (recommended starting point)**
+1. Launch a `t3.medium` or larger Ubuntu instance
+2. Install Docker and Docker Compose
+3. Clone the repo, copy `.env.production.example` → `.env.production`, fill in your values
+4. Run `./deploy.sh --build --ssl-init`
+5. Point your domain's A record to the EC2 public IP — Certbot handles SSL automatically
+
+**Option 2 — AWS App Runner (easiest, auto-scales)**
+1. Build and push the image to Amazon ECR
+2. Create an App Runner service pointed at your ECR repo
+3. Inject `.env.production` variables via the App Runner environment config
+
+**Persistent storage on AWS**
+- Mount an EBS volume to `./qdrant_storage` so vector data survives container restarts
+- `research.db` and `checkpoints.db` (SQLite) should also live on the same persistent volume
+- Logs go to `STDOUT` and are automatically captured by CloudWatch when running on ECS or App Runner
+
+**Pre-production benchmark**
+Before cutting over traffic, capture a baseline:
+```bash
+python perf/benchmark_api.py --mode health --runs 10
+python perf/benchmark_api.py --mode query --token "<TOKEN>" --query "Summarize the latest uploaded paper." --runs 5
+```
+Save the output so you have a before/after record once AWS networking and load balancers are in place.
+
+---
+
 ## How to try each feature
 
 ### Upload a document
@@ -159,51 +266,8 @@ Go to **Analytics** to see token usage, cost, and query history.
 
 ---
 
-## Production Deploy
+## How a Query Works
 
-For deploying on a Linux server with HTTPS:
-
-```bash
-# 1. Copy and fill in production secrets
-cp .env.production.example .env.production
-# Edit .env.production — set DOMAIN, OPENAI_API_KEY, JWT_SECRET_KEY, POSTGRES_PASSWORD
-
-# 2. First deploy (builds image + gets SSL certificate from Let's Encrypt)
-chmod +x deploy.sh
-./deploy.sh --build --ssl-init
-
-# 3. Future updates
-./deploy.sh --build
-```
-
-The production stack uses:
-- **Nginx** — handles HTTPS, rate limiting, and proxies both the dashboard and API
-- **Gunicorn** — runs the API with multiple workers for concurrency
-- **Let's Encrypt** — free, auto-renewable SSL certificate
-
-After deploy, the dashboard is at `https://your.domain.com` — no port numbers.
-
----
-
-## Architecture
-
-```
-Browser
-   │
-   ▼
-Nginx (HTTPS, rate limiting)
-   ├── /api/* ──► FastAPI + Gunicorn (2-4 workers)
-   │                    │
-   │              LangGraph Agent
-   │                ├── Qdrant (vector search)
-   │                ├── Redis  (exact answer cache)
-   │                ├── PostgreSQL (users, usage logs)
-   │                └── SQLite (persistent conversation state)
-   │
-   └── /* ──────► Streamlit Dashboard
-```
-
-**How a query works:**
 1. Question comes in → check Redis for exact match (returns instantly if cached)
 2. If not cached → guardrail checks if it's a clinical question
 3. Agent searches vault using hybrid search (dense vectors + BM25 keyword)
@@ -214,7 +278,7 @@ Nginx (HTTPS, rate limiting)
 
 ---
 
-## 🔬 Advanced Retrieval Strategy
+## Advanced Retrieval Strategy
 
 The platform uses a sophisticated "Multi-Stage" retrieval pipeline to ensure maximum accuracy:
 
@@ -261,7 +325,68 @@ Full list in `.env.example` (development) and `.env.production.example` (product
 
 ---
 
-Check this detailed demo video [[Source Document](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)] for more details.
+## Running Tests
+
+The test suite runs end-to-end against a live stack. Start the app first, then:
+
+```bash
+# Make sure the stack is running
+docker compose up -d
+
+# Run all feature tests
+python test_all_features.py
+```
+
+Tests cover auth, document ingestion, research chat, smart research, guideline search, literature review, document comparison, and analytics. Each test prints `[PASS]` or `[FAIL]` with a detail line on failure.
+
+The `dummy_blood_report.pdf` included in the repo is used as the test document — no upload required.
+
+---
+
+## Troubleshooting
+
+**Services won't start / port already in use**
+```bash
+# Check what's using the ports
+docker ps
+# Stop conflicting containers
+docker compose down
+```
+
+**Qdrant storage permission error on Linux**
+```bash
+# Fix volume ownership
+sudo chown -R 1000:1000 qdrant_storage/
+```
+
+**`OPENAI_API_KEY` error on first start**
+Ensure the key is set in `.env` (not just exported in your shell) — Docker Compose reads the file directly.
+
+**Dashboard shows "Connection refused" / blank page**
+The API container may still be initialising. Wait 30–60 seconds after `docker compose up` and refresh. Check logs with:
+```bash
+docker compose logs api --tail=50
+```
+
+**Ingestion hangs on large PDFs**
+Docling's layout extraction is CPU-bound. A 100-page PDF can take 2–3 minutes. The progress bar in the sidebar will update as each stage completes.
+
+**Answers are slow or missing citations**
+Check that your `OPENAI_API_KEY` has active quota. Run `docker compose logs api --tail=20` to see if rate-limit errors are being returned.
+
+**Tests fail with `ConnectionError`**
+The test suite targets `http://localhost:8000`. Make sure the stack is fully up before running `python test_all_features.py`.
+
+---
+
+## Contributing
+
+1. Fork the repo and create a feature branch: `git checkout -b feat/your-feature`
+2. Make your changes and add tests where applicable
+3. Run the test suite to confirm nothing is broken: `python test_all_features.py`
+4. Open a pull request — include what the change does and why
+
+Bug reports and feature requests are welcome via GitHub Issues.
 
 ---
 
@@ -277,4 +402,4 @@ Check this detailed demo video [[Source Document](https://drive.google.com/file/
 
 ## License
 
-[LICENSE](LICENSE)
+[MIT License](LICENSE)
