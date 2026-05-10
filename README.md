@@ -261,7 +261,7 @@ Full list in `.env.example` (development) and `.env.production.example` (product
 
 ---
 
-Check the [[Source Document](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)] for more details.
+Check this detailed demo video [[Source Document](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)] for more details.
 
 ---
 
