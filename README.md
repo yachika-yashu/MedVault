@@ -261,6 +261,10 @@ Full list in `.env.example` (development) and `.env.production.example` (product
 
 ---
 
+Check the [[Source Document](https://drive.google.com/file/d/1ZIAFrnsEob_uHI1dUllQRlp1FCbB3OE_/view?usp=drive_link)] for more details.
+
+---
+
 ## ⚠️ Medical Disclaimer
 
 **MedVault is a research assistant tool intended to support clinical decision-making by surfacing relevant medical literature and guidelines. It is NOT a medical device and does not provide medical advice, diagnosis, or treatment.**
