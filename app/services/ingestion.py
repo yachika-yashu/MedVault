@@ -38,7 +38,22 @@ async def stream_process_ingestion(
     Yields: {"type": "progress", "value": int, "message": str}
     """
     tenant_id = user.tenant_id
-    
+
+    # Pre-check: detect if this file is already indexed for this tenant
+    qdrant_check = get_qdrant()
+    existing_count = qdrant_check.count(
+        collection_name=QDRANT_COLLECTION,
+        count_filter=rest.Filter(must=[
+            rest.FieldCondition(key="tenant_id", match=rest.MatchValue(value=tenant_id)),
+            rest.FieldCondition(key="metadata.filename", match=rest.MatchValue(value=filename))
+        ])
+    ).count
+    if existing_count > 0:
+        yield {
+            "type": "warning",
+            "message": f"'{filename}' is already indexed ({existing_count} chunks). Re-indexing with the latest version now..."
+        }
+
     # Stage 1: Extraction
     yield {"type": "progress", "value": 10, "message": f"Extracting text from {filename}..."}
     from io import BytesIO

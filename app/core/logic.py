@@ -123,9 +123,11 @@ async def extract_paper_metadata(openai_client, text_sample: str) -> PaperMetada
     prompt = (
         "Extract structured metadata from the following clinical document text.\n"
         "This may be a research paper, clinical guideline, patient report, blood work, lab result, or patent.\n"
-        "Return ONLY a JSON object with keys: title (str), authors (list of str), year (int), doi (str), journal (str), keywords (list of str).\n"
-        "For patient reports or lab results: set title to the document type (e.g. 'Blood Work Report'), authors to [], year to the report year if present.\n"
-        "If a field is missing or not applicable, use null.\n\n"
+        "Return ONLY a JSON object with these keys:\n"
+        "  title (str), authors (list of str), year (int), doi (str), journal (str), keywords (list of str),\n"
+        "  references (list of str — up to 10 cited works in 'Author, Title, Year' format; empty list [] if none found).\n"
+        "For patient reports or lab results: set title to the document type (e.g. 'Blood Work Report'), authors to [], year to the report year if present, references to [].\n"
+        "If a field is missing or not applicable, use null for scalars and [] for lists.\n\n"
         f"TEXT SAMPLE:\n{text_sample[:3000]}"
     )
     try:

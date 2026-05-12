@@ -718,6 +718,8 @@ async def ingest_file(file):
                     d = json.loads(ev.data)
                     if d.get("type") == "progress":
                         _render_pipeline(pipeline_box, d["value"])
+                    elif d.get("type") == "warning":
+                        st.info(d["message"])
                     elif d.get("type") == "completed":
                         pipeline_box.empty()
                         return d["result"]

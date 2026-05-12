@@ -50,8 +50,9 @@ class PaperMetadata(BaseModel):
     doi: Optional[str] = None
     journal: Optional[str] = None
     keywords: List[str] = []
+    references: List[str] = []
 
-    @field_validator("authors", "keywords", mode="before")
+    @field_validator("authors", "keywords", "references", mode="before")
     @classmethod
     def ensure_list(cls, v):
         return v if isinstance(v, list) else []
